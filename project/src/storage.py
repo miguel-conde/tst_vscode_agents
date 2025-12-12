@@ -86,11 +86,15 @@ def load_sessions(
     for session_data in data.get("sessions", []):
         session = Session.from_dict(session_data)
         
-        # Apply date filters
-        if start_date and session.start_time < start_date:
-            continue
-        if end_date and session.start_time >= end_date:
-            continue
+        # Apply date filters - convert string dates to datetime if needed
+        if start_date:
+            compare_start = start_date if isinstance(start_date, datetime) else datetime.fromisoformat(start_date)
+            if session.start_time < compare_start:
+                continue
+        if end_date:
+            compare_end = end_date if isinstance(end_date, datetime) else datetime.fromisoformat(end_date)
+            if session.start_time >= compare_end:
+                continue
         
         sessions.append(session)
     

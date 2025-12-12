@@ -12,6 +12,11 @@ from src.storage import (
     load_sessions_by_category,
     get_storage_dir
 )
+from src.reports import (
+    generate_daily_report,
+    generate_weekly_report,
+    ReportExporter
+)
 
 
 def format_duration(duration):
@@ -246,6 +251,102 @@ def list_sessions(category, today, week, limit):
         click.echo(f"Total sessions: {len(sessions)}")
     
     click.echo(f"Total time: {click.style(format_duration(total_duration), fg='green', bold=True)}")
+
+
+@cli.command()
+@click.option('--date', default=None, help='Date for report (YYYY-MM-DD), defaults to today')
+@click.option('--format', 'output_format', type=click.Choice(['text', 'json', 'markdown', 'csv']), 
+              default='text', help='Output format')
+@click.option('--output', '-o', type=click.Path(), default=None, 
+              help='Save report to file instead of stdout')
+def daily(date, output_format, output):
+    """Generate daily report."""
+    # Use today if no date specified
+    if not date:
+        date = datetime.now().strftime('%Y-%m-%d')
+    
+    # Validate date format
+    try:
+        datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        click.echo(click.style("Error: Invalid date format. Use YYYY-MM-DD", fg='red'), err=True)
+        return
+    
+    # Generate report
+    report = generate_daily_report(date)
+    exporter = ReportExporter(report)
+    
+    # Format output
+    if output_format == 'json':
+        content = exporter.to_json()
+    elif output_format == 'markdown':
+        content = exporter.to_markdown()
+    elif output_format == 'csv':
+        content = exporter.to_csv()
+    else:  # text
+        content = exporter.to_markdown()  # Use markdown for text display
+    
+    # Output
+    if output:
+        with open(output, 'w') as f:
+            f.write(content)
+        click.echo(click.style(f"Report saved to {output}", fg='green'))
+    else:
+        click.echo(content)
+
+
+@cli.command()
+@click.option('--start', default=None, help='Start date (YYYY-MM-DD), defaults to week start')
+@click.option('--end', default=None, help='End date (YYYY-MM-DD), defaults to week end')
+@click.option('--format', 'output_format', type=click.Choice(['text', 'json', 'markdown', 'csv']), 
+              default='text', help='Output format')
+@click.option('--output', '-o', type=click.Path(), default=None, 
+              help='Save report to file instead of stdout')
+def weekly(start, end, output_format, output):
+    """Generate weekly report."""
+    now = datetime.now()
+    
+    # Calculate current week if not specified
+    if not start:
+        days_since_monday = now.weekday()
+        week_start = now - timedelta(days=days_since_monday)
+        start = week_start.strftime('%Y-%m-%d')
+    
+    if not end:
+        days_since_monday = now.weekday()
+        week_start = now - timedelta(days=days_since_monday)
+        week_end = week_start + timedelta(days=6)
+        end = week_end.strftime('%Y-%m-%d')
+    
+    # Validate dates
+    try:
+        datetime.strptime(start, '%Y-%m-%d')
+        datetime.strptime(end, '%Y-%m-%d')
+    except ValueError:
+        click.echo(click.style("Error: Invalid date format. Use YYYY-MM-DD", fg='red'), err=True)
+        return
+    
+    # Generate report
+    report = generate_weekly_report(start, end)
+    exporter = ReportExporter(report)
+    
+    # Format output
+    if output_format == 'json':
+        content = exporter.to_json()
+    elif output_format == 'markdown':
+        content = exporter.to_markdown()
+    elif output_format == 'csv':
+        content = exporter.to_csv()
+    else:  # text
+        content = exporter.to_markdown()
+    
+    # Output
+    if output:
+        with open(output, 'w') as f:
+            f.write(content)
+        click.echo(click.style(f"Report saved to {output}", fg='green'))
+    else:
+        click.echo(content)
 
 
 if __name__ == '__main__':

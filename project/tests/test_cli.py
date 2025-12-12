@@ -3,7 +3,7 @@
 import pytest
 from click.testing import CliRunner
 from datetime import datetime, timedelta
-from src.cli import cli, start, stop, status, list_sessions
+from src.cli import cli, start, stop, status, list_sessions, daily, weekly
 from src.storage import (
     get_active_timer,
     clear_active_timer,
@@ -470,3 +470,201 @@ class TestListCommand:
         assert 'Today feature' in result.output
         assert 'Yesterday feature' not in result.output
         assert 'Today bug' not in result.output
+
+
+class TestDailyReportCommand:
+    """Test daily report CLI command."""
+
+    def test_daily_report_default_date(self, runner, temp_storage):
+        """Test daily report with default date (today)."""
+        # Create test session for today
+        now = datetime.now()
+        session = Session(
+            task="Test task",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=2)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['daily'])
+        
+        assert result.exit_code == 0
+        assert 'Daily Report' in result.output
+        assert 'Test task' in result.output
+
+    def test_daily_report_specific_date(self, runner, temp_storage):
+        """Test daily report with specific date."""
+        # Create test session
+        date = datetime(2024, 1, 15, 10, 0)
+        session = Session(
+            task="Historical task",
+            category="meetings",
+            start_time=date,
+            end_time=date + timedelta(hours=1)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['daily', '--date', '2024-01-15'])
+        
+        assert result.exit_code == 0
+        assert '2024-01-15' in result.output
+        assert 'Historical task' in result.output
+
+    def test_daily_report_json_format(self, runner, temp_storage):
+        """Test daily report JSON output."""
+        now = datetime.now()
+        session = Session(
+            task="Test",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=1)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['daily', '--format', 'json'])
+        
+        assert result.exit_code == 0
+        assert '"date":' in result.output
+        assert '"total_duration":' in result.output
+
+    def test_daily_report_markdown_format(self, runner, temp_storage):
+        """Test daily report Markdown output."""
+        now = datetime.now()
+        session = Session(
+            task="Test",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=1)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['daily', '--format', 'markdown'])
+        
+        assert result.exit_code == 0
+        assert '# Daily Report' in result.output
+
+    def test_daily_report_csv_format(self, runner, temp_storage):
+        """Test daily report CSV output."""
+        now = datetime.now()
+        session = Session(
+            task="Test",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=1)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['daily', '--format', 'csv'])
+        
+        assert result.exit_code == 0
+        assert 'task,category,start_time,end_time,duration' in result.output
+
+    def test_daily_report_save_to_file(self, runner, temp_storage, tmp_path):
+        """Test saving daily report to file."""
+        now = datetime.now()
+        session = Session(
+            task="Test",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=1)
+        )
+        save_session(session)
+        
+        output_file = tmp_path / "report.md"
+        result = runner.invoke(cli, ['daily', '--output', str(output_file)])
+        
+        assert result.exit_code == 0
+        assert output_file.exists()
+        assert 'Report saved' in result.output
+
+    def test_daily_report_invalid_date(self, runner, temp_storage):
+        """Test daily report with invalid date format."""
+        result = runner.invoke(cli, ['daily', '--date', 'invalid'])
+        
+        assert result.exit_code == 0
+        assert 'Invalid date format' in result.output
+
+
+class TestWeeklyReportCommand:
+    """Test weekly report CLI command."""
+
+    def test_weekly_report_default_range(self, runner, temp_storage):
+        """Test weekly report with default date range (current week)."""
+        now = datetime.now()
+        session = Session(
+            task="Weekly task",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=3)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['weekly'])
+        
+        assert result.exit_code == 0
+        assert 'Weekly Report' in result.output
+        assert 'Weekly task' in result.output
+
+    def test_weekly_report_specific_range(self, runner, temp_storage):
+        """Test weekly report with specific date range."""
+        start_date = datetime(2024, 1, 15, 10, 0)
+        
+        # Create sessions across multiple days
+        for i in range(3):
+            date = start_date + timedelta(days=i)
+            session = Session(
+                task=f"Day {i+1} task",
+                category="development",
+                start_time=date,
+                end_time=date + timedelta(hours=2)
+            )
+            save_session(session)
+        
+        result = runner.invoke(cli, ['weekly', '--start', '2024-01-15', '--end', '2024-01-21'])
+        
+        assert result.exit_code == 0
+        assert '2024-01-15' in result.output
+        assert '2024-01-21' in result.output
+
+    def test_weekly_report_json_format(self, runner, temp_storage):
+        """Test weekly report JSON output."""
+        now = datetime.now()
+        session = Session(
+            task="Test",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=1)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['weekly', '--format', 'json'])
+        
+        assert result.exit_code == 0
+        assert '"start_date":' in result.output
+        assert '"end_date":' in result.output
+
+    def test_weekly_report_save_to_file(self, runner, temp_storage, tmp_path):
+        """Test saving weekly report to file."""
+        now = datetime.now()
+        session = Session(
+            task="Test",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=1)
+        )
+        save_session(session)
+        
+        output_file = tmp_path / "weekly_report.md"
+        result = runner.invoke(cli, ['weekly', '--output', str(output_file)])
+        
+        assert result.exit_code == 0
+        assert output_file.exists()
+        assert 'Report saved' in result.output
+
+    def test_weekly_report_invalid_date(self, runner, temp_storage):
+        """Test weekly report with invalid date format."""
+        result = runner.invoke(cli, ['weekly', '--start', 'invalid'])
+        
+        assert result.exit_code == 0
+        assert 'Invalid date format' in result.output
