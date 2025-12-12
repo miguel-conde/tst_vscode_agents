@@ -1,6 +1,7 @@
 """
 Tests for reports module - TDD approach for Phase 3.
 """
+
 import unittest
 from datetime import datetime, timedelta
 from src.reports import (
@@ -33,9 +34,9 @@ class TestDailyReport(unittest.TestCase):
                 "duration": 3600,
             },
         ]
-        
+
         report = DailyReport("2024-01-15", sessions)
-        
+
         self.assertEqual(report.date, "2024-01-15")
         self.assertEqual(len(report.sessions), 2)
         self.assertEqual(report.total_duration, 9000)
@@ -43,7 +44,7 @@ class TestDailyReport(unittest.TestCase):
     def test_daily_report_empty_sessions(self):
         """Test daily report with no sessions."""
         report = DailyReport("2024-01-15", [])
-        
+
         self.assertEqual(report.total_duration, 0)
         self.assertEqual(len(report.sessions), 0)
 
@@ -72,10 +73,10 @@ class TestDailyReport(unittest.TestCase):
                 "duration": 3600,
             },
         ]
-        
+
         report = DailyReport("2024-01-15", sessions)
         breakdown = report.get_category_breakdown()
-        
+
         self.assertEqual(breakdown["development"]["count"], 2)
         self.assertEqual(breakdown["development"]["duration"], 7200)
         self.assertEqual(breakdown["meetings"]["count"], 1)
@@ -92,10 +93,10 @@ class TestDailyReport(unittest.TestCase):
                 "duration": 3600,
             }
         ]
-        
+
         report = DailyReport("2024-01-15", sessions)
         summary = report.get_summary()
-        
+
         self.assertIn("2024-01-15", summary)
         self.assertIn("1 session", summary)
         self.assertIn("1h", summary)
@@ -122,9 +123,9 @@ class TestWeeklyReport(unittest.TestCase):
                 "duration": 3600,
             },
         ]
-        
+
         report = WeeklyReport("2024-01-15", "2024-01-21", sessions)
-        
+
         self.assertEqual(report.start_date, "2024-01-15")
         self.assertEqual(report.end_date, "2024-01-21")
         self.assertEqual(report.total_duration, 7200)
@@ -154,10 +155,10 @@ class TestWeeklyReport(unittest.TestCase):
                 "duration": 3600,
             },
         ]
-        
+
         report = WeeklyReport("2024-01-15", "2024-01-21", sessions)
         daily = report.get_daily_breakdown()
-        
+
         self.assertEqual(daily["2024-01-15"]["duration"], 7200)
         self.assertEqual(daily["2024-01-15"]["count"], 2)
         self.assertEqual(daily["2024-01-16"]["duration"], 3600)
@@ -181,10 +182,10 @@ class TestWeeklyReport(unittest.TestCase):
                 "duration": 3600,
             },
         ]
-        
+
         report = WeeklyReport("2024-01-15", "2024-01-21", sessions)
         breakdown = report.get_category_breakdown()
-        
+
         self.assertEqual(breakdown["development"]["duration"], 10800)
         self.assertEqual(breakdown["meetings"]["duration"], 3600)
 
@@ -203,11 +204,11 @@ class TestReportExporter(unittest.TestCase):
                 "duration": 3600,
             }
         ]
-        
+
         report = DailyReport("2024-01-15", sessions)
         exporter = ReportExporter(report)
         json_output = exporter.to_json()
-        
+
         self.assertIn('"date":', json_output)
         self.assertIn('"total_duration":', json_output)
         self.assertIn('"sessions":', json_output)
@@ -223,11 +224,11 @@ class TestReportExporter(unittest.TestCase):
                 "duration": 3600,
             }
         ]
-        
+
         report = DailyReport("2024-01-15", sessions)
         exporter = ReportExporter(report)
         md_output = exporter.to_markdown()
-        
+
         self.assertIn("# Daily Report", md_output)
         self.assertIn("2024-01-15", md_output)
         self.assertIn("Code review", md_output)
@@ -251,11 +252,11 @@ class TestReportExporter(unittest.TestCase):
                 "duration": 3600,
             },
         ]
-        
+
         report = DailyReport("2024-01-15", sessions)
         exporter = ReportExporter(report)
         csv_output = exporter.to_csv()
-        
+
         self.assertIn("task,category,start_time,end_time,duration", csv_output)
         self.assertIn("Task 1,development", csv_output)
         self.assertIn("Task 2,meetings", csv_output)
@@ -278,11 +279,11 @@ class TestReportExporter(unittest.TestCase):
                 "duration": 3600,
             },
         ]
-        
+
         report = DailyReport("2024-01-15", sessions)
         exporter = ReportExporter(report)
         md_output = exporter.to_markdown()
-        
+
         # Should contain ASCII visualization
         self.assertIn("█", md_output)
         self.assertIn("development", md_output)
@@ -297,7 +298,7 @@ class TestReportGeneration(unittest.TestCase):
         # This will integrate with storage module
         date_str = "2024-01-15"
         report = generate_daily_report(date_str)
-        
+
         self.assertIsInstance(report, DailyReport)
         self.assertEqual(report.date, date_str)
 
@@ -306,7 +307,7 @@ class TestReportGeneration(unittest.TestCase):
         start = "2024-01-15"
         end = "2024-01-21"
         report = generate_weekly_report(start, end)
-        
+
         self.assertIsInstance(report, WeeklyReport)
         self.assertEqual(report.start_date, start)
         self.assertEqual(report.end_date, end)
