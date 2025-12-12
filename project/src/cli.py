@@ -17,6 +17,13 @@ from src.reports import (
     generate_weekly_report,
     ReportExporter
 )
+from src.ai import (
+    analyze_patterns,
+    generate_suggestions,
+    calculate_productivity_score,
+    detect_work_blocks,
+    identify_peak_hours,
+)
 
 
 def format_duration(duration):
@@ -347,6 +354,121 @@ def weekly(start, end, output_format, output):
         click.echo(click.style(f"Report saved to {output}", fg='green'))
     else:
         click.echo(content)
+
+
+@cli.command()
+@click.option('--days', default=7, help='Number of days to analyze (default: 7)')
+def insights(days):
+    """Generate AI-powered productivity insights."""
+    # Calculate date range
+    now = datetime.now()
+    start_date = now - timedelta(days=days)
+    
+    # Load sessions
+    session_objects = load_sessions(start_date=start_date, end_date=now)
+    
+    if not session_objects:
+        click.echo(click.style("No sessions found in the specified period.", fg='yellow'))
+        return
+    
+    # Convert to dictionaries for AI module
+    sessions = [s.to_dict() for s in session_objects]
+    
+    # Analyze patterns
+    patterns = analyze_patterns(sessions)
+    
+    # Calculate productivity score
+    score_data = calculate_productivity_score(sessions)
+    
+    # Generate suggestions
+    suggestions = generate_suggestions(sessions)
+    
+    # Detect work blocks
+    work_blocks = detect_work_blocks(sessions)
+    
+    # Identify peak hours
+    peak_hours = identify_peak_hours(sessions)
+    
+    # Display results
+    click.echo(click.style(f"\n{'='*60}", fg='cyan', bold=True))
+    click.echo(click.style("AI PRODUCTIVITY INSIGHTS", fg='cyan', bold=True))
+    click.echo(click.style(f"{'='*60}\n", fg='cyan', bold=True))
+    
+    # Overview
+    click.echo(click.style("📊 Overview", fg='white', bold=True))
+    click.echo(f"   Period: Last {days} days")
+    click.echo(f"   Total Sessions: {patterns['total_sessions']}")
+    
+    hours = patterns['total_duration'] / 3600
+    click.echo(f"   Total Time: {click.style(f'{hours:.1f}h', fg='green')}")
+    
+    if patterns['most_common_category']:
+        click.echo(f"   Most Common: {click.style(patterns['most_common_category'], fg='yellow')}")
+    
+    # Productivity Score
+    click.echo(click.style("\n🎯 Productivity Score", fg='white', bold=True))
+    score = score_data['score']
+    rating = score_data['rating']
+    
+    # Color based on rating
+    if rating == "Excellent":
+        color = 'green'
+    elif rating == "Good":
+        color = 'cyan'
+    elif rating == "Fair":
+        color = 'yellow'
+    else:
+        color = 'red'
+    
+    click.echo(f"   Score: {click.style(f'{score}/100', fg=color, bold=True)} ({rating})")
+    click.echo(f"   {score_data['explanation']}")
+    
+    # Category Distribution
+    if patterns['category_distribution']:
+        click.echo(click.style("\n📂 Category Distribution", fg='white', bold=True))
+        
+        for category, stats in sorted(patterns['category_distribution'].items()):
+            cat_hours = stats['duration'] / 3600
+            percentage = (stats['duration'] / patterns['total_duration'] * 100) if patterns['total_duration'] > 0 else 0
+            
+            # Create simple bar
+            bar_length = int(percentage / 5)
+            bar = '█' * bar_length
+            
+            click.echo(f"   {click.style(category, fg='yellow')}: {bar} {cat_hours:.1f}h ({percentage:.0f}%)")
+    
+    # Peak Hours
+    if peak_hours['peak_hour'] is not None:
+        click.echo(click.style("\n⏰ Peak Productivity", fg='white', bold=True))
+        peak = peak_hours['peak_hour']
+        click.echo(f"   Peak Hour: {click.style(f'{peak}:00', fg='green')}")
+        
+        # Show top 3 hours
+        hour_dist = peak_hours['hour_distribution']
+        top_hours = sorted(hour_dist.items(), key=lambda x: x[1]['count'], reverse=True)[:3]
+        
+        if len(top_hours) > 1:
+            click.echo("   Top Hours:")
+            for hour, data in top_hours:
+                click.echo(f"     {hour:02d}:00 - {data['count']} sessions")
+    
+    # Work Blocks
+    if work_blocks:
+        click.echo(click.style("\n🔥 Work Blocks", fg='white', bold=True))
+        click.echo(f"   Detected {len(work_blocks)} focused work blocks")
+        
+        # Show longest block
+        longest = max(work_blocks, key=lambda b: b['total_duration'])
+        block_hours = longest['total_duration'] / 3600
+        click.echo(f"   Longest Block: {click.style(f'{block_hours:.1f}h', fg='green')} ({longest['session_count']} sessions)")
+    
+    # Suggestions
+    if suggestions:
+        click.echo(click.style("\n💡 Suggestions", fg='white', bold=True))
+        for i, suggestion in enumerate(suggestions, 1):
+            click.echo(f"   {i}. {suggestion}")
+    
+    click.echo(click.style(f"\n{'='*60}\n", fg='cyan'))
 
 
 if __name__ == '__main__':

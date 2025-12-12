@@ -3,7 +3,7 @@
 import pytest
 from click.testing import CliRunner
 from datetime import datetime, timedelta
-from src.cli import cli, start, stop, status, list_sessions, daily, weekly
+from src.cli import cli, start, stop, status, list_sessions, daily, weekly, insights
 from src.storage import (
     get_active_timer,
     clear_active_timer,
@@ -668,3 +668,90 @@ class TestWeeklyReportCommand:
         
         assert result.exit_code == 0
         assert 'Invalid date format' in result.output
+
+
+class TestInsightsCommand:
+    """Test AI insights CLI command."""
+
+    def test_insights_with_sessions(self, runner, temp_storage):
+        """Test insights command with sessions."""
+        # Create multiple test sessions
+        now = datetime.now()
+        
+        for i in range(5):
+            session = Session(
+                task=f"Task {i}",
+                category="development",
+                start_time=now - timedelta(days=i, hours=2),
+                end_time=now - timedelta(days=i, hours=1)
+            )
+            save_session(session)
+        
+        result = runner.invoke(cli, ['insights'])
+        
+        assert result.exit_code == 0
+        assert 'INSIGHTS' in result.output
+        assert 'Productivity Score' in result.output
+
+    def test_insights_no_sessions(self, runner, temp_storage):
+        """Test insights command with no sessions."""
+        result = runner.invoke(cli, ['insights'])
+        
+        assert result.exit_code == 0
+        assert 'No sessions found' in result.output
+
+    def test_insights_custom_days(self, runner, temp_storage):
+        """Test insights command with custom day range."""
+        now = datetime.now()
+        
+        # Create session 2 days ago
+        session = Session(
+            task="Old task",
+            category="development",
+            start_time=now - timedelta(days=2),
+            end_time=now - timedelta(days=2, hours=-1)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['insights', '--days', '3'])
+        
+        assert result.exit_code == 0
+        assert 'Last 3 days' in result.output
+
+    def test_insights_shows_suggestions(self, runner, temp_storage):
+        """Test insights includes AI suggestions."""
+        now = datetime.now()
+        
+        # Create long session to trigger break suggestion
+        session = Session(
+            task="Marathon coding",
+            category="development",
+            start_time=now,
+            end_time=now + timedelta(hours=5)
+        )
+        save_session(session)
+        
+        result = runner.invoke(cli, ['insights'])
+        
+        assert result.exit_code == 0
+        assert 'Suggestions' in result.output
+
+    def test_insights_shows_category_distribution(self, runner, temp_storage):
+        """Test insights shows category breakdown."""
+        now = datetime.now()
+        
+        # Create sessions in different categories
+        for category in ["development", "meetings", "documentation"]:
+            session = Session(
+                task=f"{category} task",
+                category=category,
+                start_time=now - timedelta(hours=3),
+                end_time=now - timedelta(hours=2)
+            )
+            save_session(session)
+        
+        result = runner.invoke(cli, ['insights'])
+        
+        assert result.exit_code == 0
+        assert 'Category Distribution' in result.output
+        assert 'development' in result.output
